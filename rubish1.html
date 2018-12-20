@@ -1,0 +1,367 @@
+<html>
+
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title></title>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="googlebot" content="noindex, nofollow">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="./css/index.css">
+    <script type="text/javascript" src="./lib/vue.js"></script>
+    <style>
+        /* .todo-list li .edit {
+            display: block;
+        } */
+    </style>
+
+</head>
+
+<body>
+    <section class="todoapp">
+        <header class="header">
+            <h1>任务清单</h1>
+            <!-- 顶部输入框 autofocus 页面一打开 这个input 自动获得焦点 -->
+            <input @keyup.enter="addTodo" v-autofocus v-model.trim="inputValue" autocomplete="off" placeholder="想干啥?"
+                class="new-todo">
+        </header>
+        <section class="main">
+            <!-- 全选 -->
+            <input type="checkbox" class="toggle-all" @change="checkAll" v-model="isCheckAll">
+            <ul class="todo-list">
+                <!-- 循环生成li标签
+                    class="todo" 这个是写死不变的
+                    动态增删一个class 直接在后面写 :class 即可
+                    如果使用{}的方式绑定属性 可以不写两边的引号
+                    如果使用三元表达式 或者是字符串拼接的方式 一定要写""
+                -->
+                <!-- <li class="todo" :class="{completed:item.isCompleted,editing:item.isEditing}" v-for="(item, index) in todoList"> -->
+                <!-- 循环计算属性 -->
+                <li class="todo" :class="{completed:item.isCompleted,editing:item.isEditing}" v-for="(item, index) in filterArr">
+                    <div class="view">
+                        <!-- 单选
+                            input type=text 值 string
+                            input type=checkbox value ->bool
+                        -->
+                        <input type="checkbox" @change="checkIsAll" class="toggle" v-model="item.isCompleted">
+                        <label @dblclick="editing(index)">{{item.content}}</label>
+                        <!-- 绑定事件 -->
+                        <button @click="delCurrent(index)" class="destroy"></button>
+                    </div>
+                    <!-- 编辑的input标签 focus blur -->
+                    <input type="text" v-focus @keyup.enter="saveEdit(index)" @blur="saveEdit(index)" class="edit"
+                        v-model="item.content">
+                </li>
+            </ul>
+        </section>
+        <footer class="footer">
+            <span class="todo-count">
+                <strong>{{unfinishedNum}}</strong> 项 剩余
+            </span>
+            <ul class="filters">
+                <li>
+                    <a href="#/all" @click="changeFilter('all')" :class="{selected:filter=='all'}">全部</a>
+                </li>
+                <li>
+                    <a href="#/active" @click="changeFilter('active')" :class="{selected:filter=='active'}">未完成</a>
+                </li>
+                <li>
+                    <a href="#/completed" @click="changeFilter('completed')" :class="{selected:filter=='completed'}">完成</a>
+                </li>
+            </ul>
+            <button class="clear-completed" @click="clearTodo">
+                清空列表
+            </button>
+        </footer>
+    </section>
+    <footer class="info">
+        <p>双击进入编辑状态</p>
+        <p>鸣谢:
+            <a href="http://evanyou.me">Evan You</a>
+        </p>
+        <p>参考于
+            <a href="http://todomvc.com">TodoMVC</a>
+        </p>
+    </footer>
+
+
+
+
+</body>
+
+</html>
+<script>
+    /*
+        需求1: 输入内容 
+                如果没有输入内容 提示用户
+                点击回车 增加数据  
+                增加成功之后 清空内容
+            @keyup.enter
+            for循环渲染数据
+            数据结构
+                [
+                    {
+                        content:'待办内容',
+                        // 状态
+                        isCompleted:false
+                    }
+                ]
+            双向数据绑定
+        需求2 未完成个数显示
+             计算属性
+             找到所有isCompleted 为false的个数即可
+        需求3 点击删除一个待办事项
+             click事件
+             传入下标
+        需求4 完成事项
+             点击事件
+             修改 标示状态 为 true
+             如果 标示状态为  true 为 当前这个li标签 增加一个 completed 类名即可 
+        需求5 清空数据
+            绑定点击事件
+            设置数组为空即可
+        需求6 双击进入编辑状态
+             绑定双击事件 label
+             用一个 input 让用户进行编辑 
+             双击之后 切换这个input的显示隐藏即可
+             先把所有的编辑状态 都变为 false
+             1.默认的方式是 切换 editing这个类名即可
+             2.动态的切换每个li中的 div 跟input的显示以及隐藏即可
+                    这种方式需要手动的调整样式  比较复杂(劳民伤财 放弃)
+                    为了记录当前这个内容是否在编辑状态 增加一个标记的属性用来记录状态
+                    isEditing:false->true
+        需求7 保存编辑
+             输入回车 保存编辑状态
+             失去焦点 保存编辑状态
+             切换编辑状态标记变量即可 isEditing=false即可
+        需求8 点击切换筛选的高亮状态
+             增删  selected 这个类名即可
+             为了动态切换样式 增加一个标记字段 用来 标示 当前筛选的是哪一类
+        需求9 根据切换的筛选条件 改变现实的内容
+            默认循环的是总数组 
+            改为不循环总数组 而是循环 计算属性 计算属性根据当前的筛选条件 返回不一样的内容
+        需求10 全选 反选
+              点击顶部的checkbox  使用change事件
+              让底部的checkbox的选中状态 跟自己一样
+              让 数组中的 每一个 iscompleted 跟自己一样
+        需求11 每一项的 选中状态改变时 判断总个数 跟  选中个数 是否一致 
+                    一致 勾选顶部
+                    不一致 取消顶部勾选
+        需求12
+                页面打开的时候 
+                    读取缓存数据 有 使用 没有 空数组
+                页面关闭的时候
+                    保存数据
+                    
+            
+    */
+    // 注册自定义指令
+    // 注册一个全局自定义指令 `v-focus`
+    // 在希望使用的时候 使用 v-focus即可
+    // 编辑的 input使用 v-focus
+    Vue.directive('focus', {
+        // el 绑定了这个指令的dom元素
+        // 当被绑定的元素插入到 DOM 中时……
+        // inserted: function (el) {
+        //     // 聚焦元素 手动让他获得焦点
+        //     console.log(el);
+        //     el.focus()
+        //     // 字体颜色 字体大小
+        // },
+        // // 当对应的数据改变时 触发
+        update: function (el) {
+            console.log('我出发啦!!!!');
+            // console.log(el);
+            // 手动获得焦点
+            el.focus();
+        }
+    })
+
+    // 再次注册使用 用来让第一个元素 自动获得焦点
+    Vue.directive('autofocus', {
+        inserted: function (el) {
+            // 聚焦元素 手动让他获得焦点
+            console.log(el);
+            el.focus()
+            // 字体颜色 字体大小
+        },
+    })
+
+    // 读取数据
+    // let todoList = JSON.parse(window.localStorage.getItem('todo22'));
+    // if(todoList==undefined){
+    //     todoList=[];
+    // }
+    let todoList = JSON.parse(window.localStorage.getItem('todo22')) || [];
+
+    // 注册页面关闭事件
+    window.onunload = function () {
+        // console.log('出发啦');
+        // alert('123')
+        // window.localStorage.setItem('secret','我有一个小秘密,就不告诉你');
+        window.localStorage.setItem('todo22',JSON.stringify(todoList));
+    }
+
+
+    let app = new Vue({
+        el: ".todoapp",
+        data: {
+            // 待办事项数组
+            todoList,
+            // 双向数据绑定
+            inputValue: '',
+            // 筛选的字段
+            filter: 'all',
+            // 是否全部选中
+            isCheckAll: false
+        },
+        // 方法
+        methods: {
+            // 新增待办事项
+            addTodo() {
+                // 非空判断
+                if (this.inputValue == '') {
+                    alert('哥们,写点啥呗 o(╥﹏╥)o');
+                    return;
+                }
+                // 增加内容
+                this.todoList.push({
+                    // 内容
+                    content: this.inputValue,
+                    // 是否完成
+                    isCompleted: false,
+                    // 是否正在编辑
+                    isEditing: false
+                })
+                // 清空内容
+                this.inputValue = '';
+            },
+            // 根据索引 删除待办事项
+            delCurrent(index) {
+                // 提示用户 判断选择
+                if (confirm('你真的要这样吗? 555') == true) {
+                    // console.log(index);
+                    this.todoList.splice(index, 1);
+                }
+            },
+            // 清空数据
+            clearTodo() {
+                if (confirm('哥们,你想清楚了,不后悔!!!') == true) {
+                    this.todoList = [];
+                }
+            },
+            // 进入编辑状态
+            editing(index) {
+                console.log(index);
+                // 全部变为false
+                this.todoList.forEach(v => {
+                    v.isEditing = false;
+                })
+                // 修改index对应内容的 isEditing即可
+                this.todoList[index].isEditing = true;
+            },
+            // 保存修改
+            saveEdit(index) {
+                console.log('保存');
+                // 取消当前的编辑状态
+                this.todoList[index].isEditing = false;
+                // 让顶部的文本框获得焦点
+                document.querySelector('.new-todo').focus();
+            },
+            // 切换筛选的内容
+            changeFilter(value) {
+                // console.log(value);
+                // 重新赋值即可
+                this.filter = value;
+            },
+            // 全选 反选
+            // checkAll绑定的事件是 click 获取值 晚了一点
+            // 
+            checkAll() {
+                // 获取自己的选中状态
+                //    console.log(this.isCheckAll);
+                this.todoList.forEach(v => {
+                    v.isCompleted = this.isCheckAll
+                })
+            },
+            // 判断是否全部选中
+            checkIsAll() {
+                // 遍历 判断完成的个数
+                let completedNum = 0;
+                // 遍历总数组 
+                this.todoList.forEach(v => {
+                    // 如果已被选中
+                    if (v.isCompleted == true) {
+                        // 个数累加
+                        completedNum++;
+                    }
+                })
+                // 循环完毕之后
+                // 如果选中个数跟总个数一致
+                if (completedNum == this.todoList.length) {
+                    // 已被全部选中
+                    this.isCheckAll = true;
+                } else {
+                    // 没有全部选中
+                    this.isCheckAll = false;
+                }
+            }
+        },
+        // 计算属性
+        computed: {
+            // 未完成的个数
+            unfinishedNum() {
+                // 遍历 判断 累加
+                /*
+                    数组的forEach方法
+                    数组点出来的
+                    接收的参数是 回调函数
+                        参数1 每次循环的值
+                        参数2 索引
+                        参数3 数组本身
+                */
+                let num = 0;
+                // 使用forEach循环数组
+                this.todoList.forEach((v, i, arr) => {
+                    // console.log(v,i,arr);
+                    // 未完成 累加
+                    if (v.isCompleted == false) {
+                        num++;
+                    }
+                })
+                // 返回
+                return num;
+            },
+            // 根据筛选条件返回不同的 数组
+            filterArr() {
+                // 遍历总数组
+                // 根据当前的筛选条件 返回不同的数组即可
+                // 全部
+                if (this.filter == 'all') {
+                    return this.todoList;
+                }
+                // 未完成
+                else if (this.filter == 'active') {
+                    let temArr = [];
+                    this.todoList.forEach(v => {
+                        if (v.isCompleted == false) {
+                            temArr.push(v);
+                        }
+                    })
+                    return temArr;
+                } else {
+                    // 已完成
+                    let temArr = [];
+                    this.todoList.forEach(v => {
+                        if (v.isCompleted == true) {
+                            temArr.push(v);
+                        }
+                    })
+                    return temArr;
+                }
+            }
+        }
+    })
+    console.log(app);
+</script>
